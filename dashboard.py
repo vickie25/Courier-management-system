@@ -104,8 +104,14 @@ def login_user():
     if user and check_password(password, user[0]):
         messagebox.showinfo("Login Success", f"Welcome, {username} ({role})!")
         open_dashboard(username, role)
+        
+        
+        login_username.delete(0, tk.END)  
+        login_password.delete(0, tk.END)  
+        login_role.set("")          
     else:
         messagebox.showerror("Login Failed", "Invalid credentials.")
+
 
 def open_dashboard(username, role):
     dashboard = tk.Toplevel(root)
@@ -125,16 +131,22 @@ def open_dashboard(username, role):
         tk.Button(dashboard, text="Update Delivery Status").grid(row=2, column=1)
 
     elif role == "Customer":
-        tk.Label(dashboard, text="Customer Dashboard").grid(row=1, column=0, columnspan=2)
-        tk.Button(dashboard, text="Track My Package", command=track_package).grid(row=2, column=0)
-        tk.Button(dashboard, text="Request Pickup", command=request_pickup).grid(row=2, column=1)
-        tk.Button(dashboard, text="My Deliveries", command=my_deliveries).grid(row=3, column=0)
-        tk.Button(dashboard, text="New Delivery", command=new_delivery).grid(row=3, column=1)
-        tk.Button(dashboard, text="Edit Profile", command=lambda: edit_profile(username)).grid(row=4, column=0)
-        tk.Button(dashboard, text="Give Feedback", command=give_feedback).grid(row=5, column=0)
+        dashboard.geometry("768x500")  
+        tk.Label(dashboard, text="Customer Dashboard", font=("Arial", 14, "bold")).grid(row=1, column=0, columnspan=2, pady=20)
+
+        tk.Button(dashboard, text="Track My Package", width=25, command=track_package).grid(row=2, column=0, padx=20, pady=10)
+        tk.Button(dashboard, text="Request Pickup", width=25, command=request_pickup).grid(row=2, column=1, padx=20, pady=10)
+
+        tk.Button(dashboard, text="My Deliveries", width=25, command=my_deliveries).grid(row=3, column=0, padx=20, pady=10)
+        tk.Button(dashboard, text="New Delivery", width=25, command=new_delivery).grid(row=3, column=1, padx=20, pady=10)
+
+        tk.Button(dashboard, text="Edit Profile", width=25, command=lambda: edit_profile(username)).grid(row=4, column=0, padx=20, pady=10)
+        tk.Button(dashboard, text="Give Feedback", width=25, command=give_feedback).grid(row=4, column=1, padx=20, pady=10)
+
+    tk.Button(dashboard, text="Logout", width=20, bg="tomato", fg="white", font=("Arial", 11, "bold"), command=dashboard.destroy)\
+            .grid(row=5, column=0, columnspan=2, pady=30)
 
 
-    tk.Button(dashboard, text="Logout", command=dashboard.destroy).grid(row=3, column=0, columnspan=2)
 
 def view_all_users():
     view_win = tk.Toplevel(root)
