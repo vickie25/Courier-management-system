@@ -1,5 +1,5 @@
 import tkinter as tk
-from tkinter import messagebox, ttk
+from tkinter import messagebox, ttk, simpledialog
 import sqlite3
 import bcrypt
 import re
@@ -122,8 +122,9 @@ def open_dashboard(username, role):
 
     if role == "Admin":
         tk.Label(dashboard, text="Admin Dashboard").grid(row=1, column=0, columnspan=2)
-        tk.Button(dashboard, text="View All Users", command=view_all_users).grid(row=2, column=0)
-        tk.Button(dashboard, text="System Settings").grid(row=2, column=1)
+        tk.Button(dashboard, text="View All Users", command=view_all_users).grid(row=2, column=0, pady=10)
+        tk.Button(dashboard, text="View All Deliveries", command=view_all_deliveries_admin).grid(row=3, column=0, pady=10)
+        tk.Button(dashboard, text="System Settings").grid(row=5, column=0)
     
     elif role == "Courier":
         tk.Label(dashboard, text="Courier Dashboard").grid(row=1, column=0, columnspan=2)
@@ -148,19 +149,141 @@ def open_dashboard(username, role):
 
 
 
+# ADMIN FUNCTIONALITIES
 def view_all_users():
     view_win = tk.Toplevel(root)
     view_win.title("All Registered Users")
-    view_win.geometry("400x250")
+    view_win.geometry("600x400")
 
-    tk.Label(view_win, text="All Users:", font=("Arial", 12, "bold")).grid(row=0, column=0, columnspan=2)
+    tk.Label(view_win, text="All Users:", font=("Arial", 12, "bold")).grid(row=0, column=0, columnspan=3)
 
-    cursor.execute("SELECT role, full_name, username, email FROM users ORDER BY role")
+    cursor.execute("SELECT id, role, full_name, username, email FROM users ORDER BY role")
     all_users = cursor.fetchall()
 
     for i, user in enumerate(all_users, start=1):
-        tk.Label(view_win, text=f"{user[0]} - {user[1]} ({user[2]}) - {user[3]}").grid(row=i, column=0, columnspan=2)
+        tk.Label(view_win, text=f"{user[1]} - {user[2]} ({user[3]}) - {user[4]}").grid(row=i, column=0, sticky="w")
+        
+        tk.Button(view_win, text="Edit", command=lambda user_id=user[0]: edit_user(user_id)).grid(row=i, column=1)
+        
+        tk.Button(view_win, text="Delete", command=lambda user_id=user[0]: delete_user(user_id)).grid(row=i, column=2)
 
+def edit_user(user_id):
+    cursor.execute("SELECT full_name, username, email, role FROM users WHERE id = ?", (user_id,))
+    user = cursor.fetchone()
+
+    edit_win = tk.Toplevel(root)
+    edit_win.title(f"Edit User - {user[1]}")
+
+    tk.Label(edit_win, text="Full Name:").grid(row=0, column=0)
+    full_name_entry = tk.Entry(edit_win)
+    full_name_entry.insert(0, user[0])
+    full_name_entry.grid(row=0, column=1)
+
+    tk.Label(edit_win, text="Username:").grid(row=1, column=0)
+    username_entry = tk.Entry(edit_win)
+    username_entry.insert(0, user[1])
+    username_entry.grid(row=1, column=1)
+
+    tk.Label(edit_win, text="Email:").grid(row=2, column=0)
+    email_entry = tk.Entry(edit_win)
+    email_entry.insert(0, user[2])
+    email_entry.grid(row=2, column=1)
+
+    tk.Label(edit_win, text="Role:").grid(row=3, column=0)
+    role_entry = ttk.Combobox(edit_win, values=["Admin", "Courier", "Customer"], state="readonly")
+    role_entry.set(user[3])
+    role_entry.grid(row=3, column=1)
+
+    def save_changes():
+        new_full_name = full_name_entry.get().strip()
+        new_username = username_entry.get().strip()
+        new_email = email_entry.get().strip()
+        new_role = role_entry.get().strip()
+
+        if not new_full_name or not new_username or not new_email or not new_role:
+            messagebox.showerror("Error", "All fields are required.")
+            return
+
+        cursor.execute("UPDATE users SET full_name = ?, username = ?, email = ?, role = ? WHERE id = ?",
+                       (new_full_name, new_username, new_email, new_role, user_id))
+        conn.commit()
+        messagebox.showinfo("Success", "User updated!")
+        edit_win.destroy()
+
+    tk.Button(edit_win, text="Save Changes", command=save_changes).grid(row=4, column=1, sticky="e")
+
+def delete_user(user_id):
+    confirm = messagebox.askyesno("Confirm Delete", "Are you sure you want to delete this user?")
+    if confirm:
+        cursor.execute("DELETE FROM users WHERE id = ?", (user_id,))
+        conn.commit()
+        messagebox.showinfo("Deleted", "User deleted successfully!")
+
+        
+def view_all_deliveries_admin():
+    view_win = tk.Toplevel(root)
+    view_win.title("All Deliveries")
+    view_win.geometry("600x400")
+
+    tk.Label(view_win, text="All Deliveries:", font=("Arial", 12, "bold")).grid(row=0, column=0, columnspan=3)
+
+    cursor.execute("SELECT package_id, customer, status, courier FROM deliveries ORDER BY status")
+    deliveries = cursor.fetchall()
+
+    for i, delivery in enumerate(deliveries, start=1):
+        tk.Label(view_win, text=f"Package ID: {delivery[0]} | Customer: {delivery[1]} | Status: {delivery[2]} | Courier: {delivery[3]}").grid(row=i, column=0, sticky="w")
+        
+        tk.Button(view_win, text="Update Status", command=lambda package_id=delivery[0]: update_delivery_status(package_id)).grid(row=i, column=1)
+
+        tk.Button(view_win, text="Assign Courier", command=lambda package_id=delivery[0]: assign_courier(package_id)).grid(row=i, column=2)
+
+def update_delivery_status(package_id):
+    status_win = tk.Toplevel(root)
+    status_win.title(f"Update Status - {package_id}")
+
+    tk.Label(status_win, text="Select Status:").grid(row=0, column=0)
+    status_combobox = ttk.Combobox(status_win, values=["Requested", "Shipped", "In Transit", "Delivered"], state="readonly")
+    status_combobox.grid(row=0, column=1)
+
+    def save_status():
+        new_status = status_combobox.get()
+        if not new_status:
+            messagebox.showerror("Error", "Please select a status.")
+            return
+
+        cursor.execute("UPDATE deliveries SET status = ? WHERE package_id = ?", (new_status, package_id))
+        conn.commit()
+        messagebox.showinfo("Success", "Delivery status updated!")
+        status_win.destroy()
+
+    tk.Button(status_win, text="Save Status", command=save_status).grid(row=1, column=1, sticky="e")
+
+def assign_courier(package_id):
+    courier_win = tk.Toplevel(root)
+    courier_win.title(f"Assign Courier - {package_id}")
+
+    tk.Label(courier_win, text="Select Courier:").grid(row=0, column=0)
+    cursor.execute("SELECT username FROM users WHERE role = 'Courier'")
+    couriers = cursor.fetchall()
+    courier_names = [courier[0] for courier in couriers]
+    courier_combobox = ttk.Combobox(courier_win, values=courier_names, state="readonly")
+    courier_combobox.grid(row=0, column=1)
+
+    def assign():
+        selected_courier = courier_combobox.get()
+        if not selected_courier:
+            messagebox.showerror("Error", "Please select a courier.")
+            return
+
+        cursor.execute("UPDATE deliveries SET courier = ? WHERE package_id = ?", (selected_courier, package_id))
+        conn.commit()
+        messagebox.showinfo("Success", f"Courier {selected_courier} assigned to the package!")
+        courier_win.destroy()
+
+    tk.Button(courier_win, text="Assign Courier", command=assign).grid(row=1, column=1, sticky="e")
+
+
+#USERS FUNCTIONS
 def track_package():
     win = tk.Toplevel(root)
     win.title("Track My Package")
@@ -309,6 +432,23 @@ def give_feedback():
 
     tk.Button(win, text="Submit", command=submit_feedback).grid(row=2, column=1, sticky="e")
 
+
+# COURIER DASHBOARD
+def my_deliveries():
+    win = tk.Toplevel(root)
+    win.title("My Deliveries")
+
+    tk.Label(win, text="Your Deliveries:", font=("Arial", 12)).grid(row=0, column=0, columnspan=2)
+
+    cursor.execute("SELECT package_id, status FROM deliveries WHERE courier = ? ORDER BY status", (login_username.get(),))
+    deliveries = cursor.fetchall()
+
+    if not deliveries:
+        tk.Label(win, text="No deliveries assigned.").grid(row=1, column=0)
+    else:
+        for i, (pid, status) in enumerate(deliveries, start=1):
+            tk.Label(win, text=f"Package ID: {pid}").grid(row=i, column=0)
+            tk.Label(win, text=f"Status: {status}").grid(row=i, column=1)
 
 
 root = tk.Tk()
